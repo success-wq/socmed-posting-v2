@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Media Post Creator v2</title>
+    <link rel="stylesheet" href="styles-v2-updated.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <button class="live-demo-btn">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="3" fill="currentColor"/>
+                </svg>
+                LIVE
+            </button>
+            <h1 class="title">Social Media Post Creator</h1>
+            <p class="subtitle">Create multiple social media posts for different pages and platforms</p>
+        </div>
+
+        <!-- Form Navigation -->
+        <div class="form-nav">
+            <div class="form-tabs" id="formTabs"></div>
+            <button class="add-form-btn" id="addFormBtn">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Add Form
+            </button>
+        </div>
+
+        <!-- Forms Container -->
+        <div class="forms-container" id="formsContainer"></div>
+
+        <!-- Submit Section -->
+        <div class="submit-section">
+            <button class="clear-all-btn" id="clearAllBtn">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M5 5l10 10M15 5l-10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Clear All
+            </button>
+            <button class="submit-all-btn" id="submitAllBtn">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M16 10l-6 6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Submit All Forms
+            </button>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+            <div class="spinner"></div>
+            <p>Processing posts...</p>
+        </div>
+    </div>
+
+    <script src="script-v2-updated.js"></script>
+</body>
+</html>
