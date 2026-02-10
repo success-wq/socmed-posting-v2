@@ -659,11 +659,11 @@ function transformN8nResponse(data, form) {
     console.log('🔄 Transforming n8n response:', data);
     
     return {
-        pageId: data.pageID || data.body?.forms?.[0]?.pages?.[0] || '',
-        title: data.pageTitle || data.body?.forms?.[0]?.pageTitles?.[0] || 'Untitled',
-        text: data.content || data.output?.[1]?.text || data.body?.forms?.[0]?.postPrompt || '',
-        image: data.image || data.url || '',
-        video: data.video || '',
+        pageId: (Array.isArray(data.pageID) ? data.pageID[0] : data.pageID) || data.body?.forms?.[0]?.pages?.[0] || '',
+        title: (Array.isArray(data.pageTitle) ? data.pageTitle[0] : data.pageTitle) || data.body?.forms?.[0]?.pageTitles?.[0] || 'Untitled',
+        text: (Array.isArray(data.content) ? data.content[0] : data.content) || data.output?.[1]?.text || data.body?.forms?.[0]?.postPrompt || '',
+        image: (Array.isArray(data.image) ? data.image[0] : data.image) || data.url || '',
+        video: (Array.isArray(data.video) ? data.video[0] : data.video) || '',
         platform: data.platform || form.platform || 'facebook',
         published: false,
         loadingMedia: false,
