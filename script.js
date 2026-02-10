@@ -686,6 +686,7 @@ function addDraft(formId, draftData) {
     const draft = {
         id: Date.now() + Math.random(),
         ...draftData,
+        collapsed: false,
         editing: false
     };
     
