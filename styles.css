@@ -1256,6 +1256,55 @@ body {
     animation: spin 0.8s linear infinite;
 }
 
+/* Draft Action Buttons */
+.btn-secondary {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px !important;
+    background-color: #2a2a2a !important;
+    border: 1px solid #404040 !important;
+    border-radius: 8px;
+    color: #ffffff !important;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background-color: #404040 !important;
+    border-color: #606060 !important;
+}
+
+.btn-secondary svg {
+    flex-shrink: 0;
+}
+
+.btn-primary {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px !important;
+    background-color: #1e40af !important;
+    border: 1px solid #3b82f6 !important;
+    border-radius: 8px;
+    color: #ffffff !important;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #1e3a8a !important;
+    border-color: #60a5fa !important;
+}
+
+.btn-primary svg {
+    flex-shrink: 0;
+}
+
 /* Published Button State */
 .btn-primary.published {
     background-color: #166534;
@@ -1372,4 +1421,9 @@ body {
 
 .textarea-input::placeholder {
     color: #606060;
+}
+
+/* Collapsed Draft State */
+.draft-card[data-collapsed="true"] .draft-content {
+    display: none;
 }
