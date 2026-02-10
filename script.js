@@ -835,10 +835,24 @@ function cancelEdit(formId, draftId) {
 
 // Toggle Draft Collapse
 function toggleDraftCollapse(formId, draftId) {
-    const form = forms.find(f => f.id === formId);
-    const draft = form.drafts.find(d => d.id === draftId);
+    console.log('🔄 toggleDraftCollapse called:', { formId, draftId });
     
+    const form = forms.find(f => f.id === formId);
+    if (!form) {
+        console.error('❌ Form not found:', formId);
+        return;
+    }
+    
+    const draft = form.drafts.find(d => d.id === draftId);
+    if (!draft) {
+        console.error('❌ Draft not found:', draftId);
+        return;
+    }
+    
+    console.log('✅ Before toggle - collapsed:', draft.collapsed);
     draft.collapsed = !draft.collapsed;
+    console.log('✅ After toggle - collapsed:', draft.collapsed);
+    
     renderDrafts(formId);
 }
 
@@ -1233,3 +1247,13 @@ function showLoading(show) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+
+// Make functions globally accessible for onclick handlers
+window.toggleDraftCollapse = toggleDraftCollapse;
+window.editDraft = editDraft;
+window.saveEdit = saveEdit;
+window.cancelEdit = cancelEdit;
+window.deleteDraft = deleteDraft;
+window.regenerateDraft = regenerateDraft;
+window.publishDraft = publishDraft;
+window.publishAllDrafts = publishAllDrafts;
