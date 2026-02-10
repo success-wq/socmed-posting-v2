@@ -2,7 +2,7 @@
 const CONFIG = {
     WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbwsPqtiXoC6vNF6BNYQPGqhbazL_tvn5KD07GIOuyZtzhmqPAeL1JTk7IztpPyh5b6h/exec',
     N8N_TEXT_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/3b3d73f0-e739-420c-bd72-e30f590726a4',
-    N8N_IMAGE_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook-test/7af9b7d7-aa02-42e4-8c71-32e9a298c749',
+    N8N_IMAGE_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/7af9b7d7-aa02-42e4-8c71-32e9a298c749',
     N8N_PUBLISH_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/2a8b5dcf-f1b8-4683-b73a-f2e9f7adc498',
     GHL_LOCATION_ID: '',
     GHL_TOKEN: '',
