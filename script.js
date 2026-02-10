@@ -686,7 +686,7 @@ function addDraft(formId, draftData) {
     const draft = {
         id: Date.now() + Math.random(),
         ...draftData,
-        collapsed: false,
+        collapsed: true,
         editing: false
     };
     
@@ -779,12 +779,6 @@ function renderDrafts(formId) {
                         
                         ${!draft.editing ? `
                             <div class="draft-footer">
-                                <button class="btn-secondary" onclick="regenerateDraft(${formId}, ${draft.id})">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                        <path d="M14 8A6 6 0 1 1 8 2a6 6 0 0 1 6 6zM8 4v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                    Regenerate
-                                </button>
                                 <button class="btn-primary ${draft.published ? 'published' : ''}" onclick="publishDraft(${formId}, ${draft.id})">
                                     ${draft.published ? `
                                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="color: #22c55e;">
@@ -1254,6 +1248,5 @@ window.editDraft = editDraft;
 window.saveEdit = saveEdit;
 window.cancelEdit = cancelEdit;
 window.deleteDraft = deleteDraft;
-window.regenerateDraft = regenerateDraft;
 window.publishDraft = publishDraft;
 window.publishAllDrafts = publishAllDrafts;
