@@ -659,6 +659,7 @@ function transformN8nResponse(data, form) {
     console.log('🔄 Transforming n8n response:', data);
     
     return {
+        id: data.draftId || (Date.now() + Math.random()), // Use draftId from n8n, fallback to timestamp
         pageId: data.pageID || data.body?.forms?.[0]?.pages?.[0] || '',
         title: data.pageTitle || data.body?.forms?.[0]?.pageTitles?.[0] || 'Untitled',
         text: data.content || data.output?.[1]?.text || data.body?.forms?.[0]?.postPrompt || '',
@@ -684,7 +685,7 @@ function addDraft(formId, draftData) {
     const form = forms.find(f => f.id === formId);
     
     const draft = {
-        id: Date.now() + Math.random(),
+        id: draftData.id || (Date.now() + Math.random()), // Use id from draftData if exists
         ...draftData,
         editing: false
     };
@@ -1014,26 +1015,32 @@ async function regenerateDraft(formId, draftId) {
             draft.loadingMedia = true;
             renderDrafts(formId);
             
+            const mediaPayload = {
+                forms: [regenerateFormData],
+                userId: CONFIG.GHL_USER_ID,
+                locationId: CONFIG.GHL_LOCATION_ID,
+                draftIds: [draft.id]  // Send current draft ID
+            };
+            
             const mediaResponse = await fetch(CONFIG.N8N_IMAGE_WEBHOOK, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    forms: [regenerateFormData],
-                    userId: CONFIG.GHL_USER_ID,
-                    locationId: CONFIG.GHL_LOCATION_ID
-                })
+                body: JSON.stringify(mediaPayload)
             });
             
             if (mediaResponse.ok) {
                 const mediaResult = await mediaResponse.json();
                 console.log('📥 Received media from n8n:', mediaResult);
                 
-                if (draft.editData.mediaType === 'image') {
-                    draft.image = mediaResult.image || mediaResult.url || '';
-                } else if (draft.editData.mediaType === 'video') {
-                    draft.video = mediaResult.video || '';
+                // Match by draftId
+                if (mediaResult.draftId === draft.id) {
+                    if (draft.editData.mediaType === 'image') {
+                        draft.image = mediaResult.image || mediaResult.url || '';
+                    } else if (draft.editData.mediaType === 'video') {
+                        draft.video = mediaResult.video || '';
+                    }
                 }
             }
             
@@ -1157,12 +1164,24 @@ async function submitAllForms() {
         if (hasMedia) {
             console.log('📤 Step 2: Media detected, sending to IMAGE webhook...');
             
+            // Extract draftIds from the created drafts
+            const draftIds = validForms[0].drafts
+                .filter(d => d.loadingMedia)
+                .map(d => d.id);
+            
+            console.log('📋 Sending draftIds to image webhook:', draftIds);
+            
+            const imagePayload = {
+                ...payload,
+                draftIds: draftIds  // Include draftIds for matching
+            };
+            
             const imageResponse = await fetch(CONFIG.N8N_IMAGE_WEBHOOK, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(imagePayload)
             });
             
             console.log('📥 Step 2: IMAGE webhook response status:', imageResponse.status);
@@ -1178,16 +1197,18 @@ async function submitAllForms() {
                     if (validForms.length > 0) {
                         const targetForm = validForms[0];
                         
-                        mediaResultsArray.forEach((mediaData, index) => {
-                            // Match by pageID to ensure correct draft gets correct media
+                        mediaResultsArray.forEach((mediaData) => {
+                            // Match by draftId to ensure correct draft gets correct media
                             const matchingDraft = targetForm.drafts.find(d => 
-                                d.pageId === mediaData.pageID || d.pageId === mediaData.body?.forms?.[0]?.pages?.[0]
+                                d.id === mediaData.draftId
                             );
                             
                             if (matchingDraft) {
                                 matchingDraft.image = mediaData.image || mediaData.url || '';
                                 matchingDraft.video = mediaData.video || '';
                                 matchingDraft.loadingMedia = false;
+                            } else {
+                                console.warn('⚠️ No matching draft found for draftId:', mediaData.draftId);
                             }
                         });
                         
