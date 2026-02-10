@@ -659,7 +659,6 @@ function transformN8nResponse(data, form) {
     console.log('🔄 Transforming n8n response:', data);
     
     return {
-        id: data.draftId || (Date.now() + Math.random()), // Use draftId from n8n, fallback to timestamp
         pageId: data.pageID || data.body?.forms?.[0]?.pages?.[0] || '',
         title: data.pageTitle || data.body?.forms?.[0]?.pageTitles?.[0] || 'Untitled',
         text: data.content || data.output?.[1]?.text || data.body?.forms?.[0]?.postPrompt || '',
@@ -685,7 +684,7 @@ function addDraft(formId, draftData) {
     const form = forms.find(f => f.id === formId);
     
     const draft = {
-        id: draftData.id || (Date.now() + Math.random()), // Use id from draftData if exists
+        id: Date.now() + Math.random(),
         ...draftData,
         editing: false
     };
@@ -716,31 +715,31 @@ function renderDrafts(formId) {
         </div>
         <div class="drafts-grid">
             ${form.drafts.map(draft => `
-                <div class="draft-card" data-draft-id="${draft.id}" data-collapsed="${draft.collapsed || false}">
-                    <div class="draft-header" onclick="toggleDraftCollapse(${formId}, '${draft.id}')">
+                <div class="draft-card" data-draft-id="${draft.id}">
+                    <div class="draft-header">
                         <div class="draft-info">
                             <h4 class="draft-title">${escapeHtml(draft.title)}</h4>
                             <span class="draft-platform">${draft.platform}</span>
                         </div>
-                        <div class="draft-actions" onclick="event.stopPropagation()">
+                        <div class="draft-actions">
                             ${!draft.editing ? `
-                                <button class="icon-btn" onclick="editDraft(${formId}, '${draft.id}')" title="Edit">
+                                <button class="icon-btn" onclick="editDraft(${formId}, ${draft.id})" title="Edit">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                         <path d="M11.334 2A2.828 2.828 0 0 1 15 5.667L5.5 15.167l-4.167.833.833-4.167L11.334 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                     </svg>
                                 </button>
-                                <button class="icon-btn" onclick="deleteDraft(${formId}, '${draft.id}')" title="Delete">
+                                <button class="icon-btn" onclick="deleteDraft(${formId}, ${draft.id})" title="Delete">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                         <path d="M2 4h12M5.333 4V2.667a1.333 1.333 0 0 1 1.334-1.334h2.666a1.333 1.333 0 0 1 1.334 1.334V4m2 0v9.333a1.333 1.333 0 0 1-1.334 1.334H4.667a1.333 1.333 0 0 1-1.334-1.334V4h9.334z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                     </svg>
                                 </button>
                             ` : `
-                                <button class="icon-btn" onclick="saveEdit(${formId}, '${draft.id}')" title="Save">
+                                <button class="icon-btn" onclick="saveEdit(${formId}, ${draft.id})" title="Save">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                         <path d="M13.333 4L6 11.333 2.667 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                     </svg>
                                 </button>
-                                <button class="icon-btn" onclick="cancelEdit(${formId}, '${draft.id}')" title="Cancel">
+                                <button class="icon-btn" onclick="cancelEdit(${formId}, ${draft.id})" title="Cancel">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                         <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                                     </svg>
@@ -749,57 +748,55 @@ function renderDrafts(formId) {
                         </div>
                     </div>
                     
-                    <div class="draft-content">
-                        ${draft.editing ? `
-                            <textarea class="draft-text-edit" data-draft-text="${draft.id}">${escapeHtml(draft.text)}</textarea>
-                        ` : `
-                            <p class="draft-text">${escapeHtml(draft.text).replace(/\n/g, '<br>')}</p>
-                        `}
-                        
-                        ${draft.loadingMedia ? `
-                            <div class="draft-media-loading">
-                                <div class="spinner-small"></div>
-                                <p>${draft.editData.mediaType === 'image' ? 'Image' : 'Video'} loading... please wait...</p>
-                            </div>
-                        ` : ''}
-                        
-                        ${draft.image && !draft.loadingMedia ? `
-                            <div class="draft-media">
-                                <img src="${draft.image}" alt="Post image" class="draft-image">
-                            </div>
-                        ` : ''}
-                        
-                        ${draft.video && !draft.loadingMedia ? `
-                            <div class="draft-media">
-                                <video controls class="draft-video">
-                                    <source src="${draft.video}">
-                                </video>
-                            </div>
-                        ` : ''}
-                        
-                        ${!draft.editing ? `
-                            <div class="draft-footer">
-                                <button class="btn-secondary" onclick="regenerateDraft(${formId}, '${draft.id}')">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                        <path d="M14 8A6 6 0 1 1 8 2a6 6 0 0 1 6 6zM8 4v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    ${draft.editing ? `
+                        <textarea class="draft-text-edit" data-draft-text="${draft.id}">${escapeHtml(draft.text)}</textarea>
+                    ` : `
+                        <p class="draft-text">${escapeHtml(draft.text).replace(/\n/g, '<br>')}</p>
+                    `}
+                    
+                    ${draft.loadingMedia ? `
+                        <div class="draft-media-loading">
+                            <div class="spinner-small"></div>
+                            <p>${draft.editData.mediaType === 'image' ? 'Image' : 'Video'} loading... please wait...</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${draft.image && !draft.loadingMedia ? `
+                        <div class="draft-media">
+                            <img src="${draft.image}" alt="Post image" class="draft-image">
+                        </div>
+                    ` : ''}
+                    
+                    ${draft.video && !draft.loadingMedia ? `
+                        <div class="draft-media">
+                            <video controls class="draft-video">
+                                <source src="${draft.video}">
+                            </video>
+                        </div>
+                    ` : ''}
+                    
+                    ${!draft.editing ? `
+                        <div class="draft-footer">
+                            <button class="btn-secondary" onclick="regenerateDraft(${formId}, ${draft.id})">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M14 8A6 6 0 1 1 8 2a6 6 0 0 1 6 6zM8 4v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Regenerate
+                            </button>
+                            <button class="btn-primary ${draft.published ? 'published' : ''}" onclick="publishDraft(${formId}, ${draft.id})">
+                                ${draft.published ? `
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="color: #22c55e;">
+                                        <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2" fill="none"/>
+                                        <path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                     </svg>
-                                    Regenerate
-                                </button>
-                                <button class="btn-primary ${draft.published ? 'published' : ''}" onclick="publishDraft(${formId}, '${draft.id}')">
-                                    ${draft.published ? `
-                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="color: #22c55e;">
-                                            <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2" fill="none"/>
-                                            <path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                    ` : ''}
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                        <path d="M14.667 1.333L7.333 8.667M14.667 1.333l-4 12-3.334-5.333-5.333-3.333 12-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                    Publish
-                                </button>
-                            </div>
-                        ` : ''}
-                    </div>
+                                ` : ''}
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M14.667 1.333L7.333 8.667M14.667 1.333l-4 12-3.334-5.333-5.333-3.333 12-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Publish
+                            </button>
+                        </div>
+                    ` : ''}
                 </div>
             `).join('')}
         </div>
@@ -830,15 +827,6 @@ function cancelEdit(formId, draftId) {
     const form = forms.find(f => f.id === formId);
     const draft = form.drafts.find(d => d.id === draftId);
     draft.editing = false;
-    renderDrafts(formId);
-}
-
-// Toggle Draft Collapse
-function toggleDraftCollapse(formId, draftId) {
-    const form = forms.find(f => f.id === formId);
-    const draft = form.drafts.find(d => d.id === draftId);
-    
-    draft.collapsed = !draft.collapsed;
     renderDrafts(formId);
 }
 
@@ -1026,32 +1014,26 @@ async function regenerateDraft(formId, draftId) {
             draft.loadingMedia = true;
             renderDrafts(formId);
             
-            const mediaPayload = {
-                forms: [regenerateFormData],
-                userId: CONFIG.GHL_USER_ID,
-                locationId: CONFIG.GHL_LOCATION_ID,
-                draftIds: [draft.id]  // Send current draft ID
-            };
-            
             const mediaResponse = await fetch(CONFIG.N8N_IMAGE_WEBHOOK, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(mediaPayload)
+                body: JSON.stringify({
+                    forms: [regenerateFormData],
+                    userId: CONFIG.GHL_USER_ID,
+                    locationId: CONFIG.GHL_LOCATION_ID
+                })
             });
             
             if (mediaResponse.ok) {
                 const mediaResult = await mediaResponse.json();
                 console.log('📥 Received media from n8n:', mediaResult);
                 
-                // Match by draftId
-                if (mediaResult.draftId === draft.id) {
-                    if (draft.editData.mediaType === 'image') {
-                        draft.image = mediaResult.image || mediaResult.url || '';
-                    } else if (draft.editData.mediaType === 'video') {
-                        draft.video = mediaResult.video || '';
-                    }
+                if (draft.editData.mediaType === 'image') {
+                    draft.image = mediaResult.image || mediaResult.url || '';
+                } else if (draft.editData.mediaType === 'video') {
+                    draft.video = mediaResult.video || '';
                 }
             }
             
@@ -1175,24 +1157,12 @@ async function submitAllForms() {
         if (hasMedia) {
             console.log('📤 Step 2: Media detected, sending to IMAGE webhook...');
             
-            // Extract draftIds from the created drafts
-            const draftIds = validForms[0].drafts
-                .filter(d => d.loadingMedia)
-                .map(d => d.id);
-            
-            console.log('📋 Sending draftIds to image webhook:', draftIds);
-            
-            const imagePayload = {
-                ...payload,
-                draftIds: draftIds  // Include draftIds for matching
-            };
-            
             const imageResponse = await fetch(CONFIG.N8N_IMAGE_WEBHOOK, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(imagePayload)
+                body: JSON.stringify(payload)
             });
             
             console.log('📥 Step 2: IMAGE webhook response status:', imageResponse.status);
@@ -1208,18 +1178,16 @@ async function submitAllForms() {
                     if (validForms.length > 0) {
                         const targetForm = validForms[0];
                         
-                        mediaResultsArray.forEach((mediaData) => {
-                            // Match by draftId to ensure correct draft gets correct media
+                        mediaResultsArray.forEach((mediaData, index) => {
+                            // Match by pageID to ensure correct draft gets correct media
                             const matchingDraft = targetForm.drafts.find(d => 
-                                d.id === mediaData.draftId
+                                d.pageId === mediaData.pageID || d.pageId === mediaData.body?.forms?.[0]?.pages?.[0]
                             );
                             
                             if (matchingDraft) {
                                 matchingDraft.image = mediaData.image || mediaData.url || '';
                                 matchingDraft.video = mediaData.video || '';
                                 matchingDraft.loadingMedia = false;
-                            } else {
-                                console.warn('⚠️ No matching draft found for draftId:', mediaData.draftId);
                             }
                         });
                         
