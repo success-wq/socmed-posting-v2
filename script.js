@@ -715,13 +715,13 @@ function renderDrafts(formId) {
         </div>
         <div class="drafts-grid">
             ${form.drafts.map(draft => `
-                <div class="draft-card" data-draft-id="${draft.id}">
-                    <div class="draft-header">
+                <div class="draft-card" data-draft-id="${draft.id}" data-collapsed="${draft.collapsed || false}">
+                    <div class="draft-header" onclick="toggleDraftCollapse(${formId}, ${draft.id})" style="cursor: pointer;">
                         <div class="draft-info">
                             <h4 class="draft-title">${escapeHtml(draft.title)}</h4>
                             <span class="draft-platform">${draft.platform}</span>
                         </div>
-                        <div class="draft-actions">
+                        <div class="draft-actions" onclick="event.stopPropagation()">
                             ${!draft.editing ? `
                                 <button class="icon-btn" onclick="editDraft(${formId}, ${draft.id})" title="Edit">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -748,55 +748,57 @@ function renderDrafts(formId) {
                         </div>
                     </div>
                     
-                    ${draft.editing ? `
-                        <textarea class="draft-text-edit" data-draft-text="${draft.id}">${escapeHtml(draft.text)}</textarea>
-                    ` : `
-                        <p class="draft-text">${escapeHtml(draft.text).replace(/\n/g, '<br>')}</p>
-                    `}
-                    
-                    ${draft.loadingMedia ? `
-                        <div class="draft-media-loading">
-                            <div class="spinner-small"></div>
-                            <p>${draft.editData.mediaType === 'image' ? 'Image' : 'Video'} loading... please wait...</p>
-                        </div>
-                    ` : ''}
-                    
-                    ${draft.image && !draft.loadingMedia ? `
-                        <div class="draft-media">
-                            <img src="${draft.image}" alt="Post image" class="draft-image">
-                        </div>
-                    ` : ''}
-                    
-                    ${draft.video && !draft.loadingMedia ? `
-                        <div class="draft-media">
-                            <video controls class="draft-video">
-                                <source src="${draft.video}">
-                            </video>
-                        </div>
-                    ` : ''}
-                    
-                    ${!draft.editing ? `
-                        <div class="draft-footer">
-                            <button class="btn-secondary" onclick="regenerateDraft(${formId}, ${draft.id})">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M14 8A6 6 0 1 1 8 2a6 6 0 0 1 6 6zM8 4v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                                Regenerate
-                            </button>
-                            <button class="btn-primary ${draft.published ? 'published' : ''}" onclick="publishDraft(${formId}, ${draft.id})">
-                                ${draft.published ? `
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="color: #22c55e;">
-                                        <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2" fill="none"/>
-                                        <path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <div class="draft-content">
+                        ${draft.editing ? `
+                            <textarea class="draft-text-edit" data-draft-text="${draft.id}">${escapeHtml(draft.text)}</textarea>
+                        ` : `
+                            <p class="draft-text">${escapeHtml(draft.text).replace(/\n/g, '<br>')}</p>
+                        `}
+                        
+                        ${draft.loadingMedia ? `
+                            <div class="draft-media-loading">
+                                <div class="spinner-small"></div>
+                                <p>${draft.editData.mediaType === 'image' ? 'Image' : 'Video'} loading... please wait...</p>
+                            </div>
+                        ` : ''}
+                        
+                        ${draft.image && !draft.loadingMedia ? `
+                            <div class="draft-media">
+                                <img src="${draft.image}" alt="Post image" class="draft-image">
+                            </div>
+                        ` : ''}
+                        
+                        ${draft.video && !draft.loadingMedia ? `
+                            <div class="draft-media">
+                                <video controls class="draft-video">
+                                    <source src="${draft.video}">
+                                </video>
+                            </div>
+                        ` : ''}
+                        
+                        ${!draft.editing ? `
+                            <div class="draft-footer">
+                                <button class="btn-secondary" onclick="regenerateDraft(${formId}, ${draft.id})">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M14 8A6 6 0 1 1 8 2a6 6 0 0 1 6 6zM8 4v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                     </svg>
-                                ` : ''}
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M14.667 1.333L7.333 8.667M14.667 1.333l-4 12-3.334-5.333-5.333-3.333 12-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                                Publish
-                            </button>
-                        </div>
-                    ` : ''}
+                                    Regenerate
+                                </button>
+                                <button class="btn-primary ${draft.published ? 'published' : ''}" onclick="publishDraft(${formId}, ${draft.id})">
+                                    ${draft.published ? `
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="color: #22c55e;">
+                                            <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2" fill="none"/>
+                                            <path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    ` : ''}
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M14.667 1.333L7.333 8.667M14.667 1.333l-4 12-3.334-5.333-5.333-3.333 12-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Publish
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
                 </div>
             `).join('')}
         </div>
@@ -827,6 +829,15 @@ function cancelEdit(formId, draftId) {
     const form = forms.find(f => f.id === formId);
     const draft = form.drafts.find(d => d.id === draftId);
     draft.editing = false;
+    renderDrafts(formId);
+}
+
+// Toggle Draft Collapse
+function toggleDraftCollapse(formId, draftId) {
+    const form = forms.find(f => f.id === formId);
+    const draft = form.drafts.find(d => d.id === draftId);
+    
+    draft.collapsed = !draft.collapsed;
     renderDrafts(formId);
 }
 
