@@ -1355,3 +1355,13 @@ body {
 .draft-footer button svg {
     flex-shrink: 0;
 }
+
+/* Collapse Functionality */
+.draft-card[data-collapsed="true"] .draft-content {
+    display: none;
+}
+
+.draft-header {
+    cursor: pointer;
+    user-select: none;
+}
