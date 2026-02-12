@@ -1171,87 +1171,189 @@ async function submitAllForms() {
             }
         }
         
-        // STEP 2: If media is enabled, send to IMAGE webhook
-        const hasMedia = cleanForms.some(f => f.mediaType !== 'none');
-        
-        if (hasMedia) {
-            console.log('📤 Step 2: Media detected, sending to IMAGE webhook...');
+// Submit All Forms - WITH BATCHING FOR IMAGES
+async function submitAllForms() {
+    // Validate all forms
+    const validForms = forms.filter(f => {
+        const hasValidPage = f.pageMode === 'all' || f.pages.length > 0;
+        return hasValidPage && f.platform && f.postPrompt && f.selectedArea;
+    });
+    
+    if (validForms.length === 0) {
+        alert('Please complete at least one form before submitting');
+        return;
+    }
+    
+    if (!confirm(`Submit ${validForms.length} form(s)?`)) return;
+    
+    showLoading(true);
+    
+    try {
+        // Prepare clean forms with ALL data
+        const cleanForms = validForms.map(form => {
+            const { drafts, ...formData } = form;
             
-            const imageResponse = await fetch(CONFIG.N8N_IMAGE_WEBHOOK, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
+            // Add spreadsheet data arrays matching each page
+            const spreadsheetArrays = {
+                areas: [],
+                metaPageIds: [],
+                ghlLocationIds: [],
+                ghlApiKeys: []
+            };
+            
+            form.pageTitles.forEach((pageTitle, index) => {
+                const spreadsheetRow = spreadsheetData.find(row => 
+                    row.pageTitle === pageTitle
+                ) || {};
+                
+                spreadsheetArrays.areas.push(spreadsheetRow.area || '');
+                spreadsheetArrays.metaPageIds.push(spreadsheetRow.metaPageId || '');
+                spreadsheetArrays.ghlLocationIds.push(spreadsheetRow.ghlLocationId || '');
+                spreadsheetArrays.ghlApiKeys.push(spreadsheetRow.ghlApiKey || '');
             });
             
-            console.log('📥 Step 2: IMAGE webhook response status:', imageResponse.status);
+            return {
+                ...formData,
+                ...spreadsheetArrays
+            };
+        });
+        
+        const basePayload = {
+            userId: CONFIG.GHL_USER_ID,
+            locationId: CONFIG.GHL_LOCATION_ID
+        };
+        
+        console.log('📤 Step 1: Sending to TEXT webhook...');
+        
+        // STEP 1: Send ALL forms to TEXT webhook (this is fast)
+        const textResponse = await fetch(CONFIG.N8N_TEXT_WEBHOOK, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                forms: cleanForms,
+                ...basePayload
+            })
+        });
+        
+        if (!textResponse.ok) {
+            throw new Error('Text generation failed');
+        }
+        
+        const textResult = await textResponse.json();
+        console.log('📥 Step 1 Complete: Received text:', textResult);
+        
+        // Process text results and add drafts
+        if (textResult) {
+            let resultsArray = Array.isArray(textResult) ? textResult : [textResult];
             
-            if (imageResponse.ok) {
-                try {
-                    const responseText = await imageResponse.text();
-                    console.log('📥 Raw response:', responseText);
+            if (validForms.length > 0) {
+                const targetForm = validForms[0];
+                
+                resultsArray.forEach(draftData => {
+                    const transformedResult = transformN8nResponse(draftData, targetForm);
                     
-                    // Only parse if there's actual content
-                    if (responseText && responseText.trim()) {
-                        const imageResult = JSON.parse(responseText);
-                        console.log('📥 Step 2 Complete: Received media from n8n:', imageResult);
+                    // Check if media is needed
+                    if (targetForm.mediaType !== 'none') {
+                        transformedResult.loadingMedia = true;
+                    }
+                    
+                    addDraft(targetForm.id, transformedResult);
+                });
+            }
+        }
+        
+        // STEP 2: If media is enabled, send in BATCHES
+        const formsWithMedia = cleanForms.filter(f => f.mediaType !== 'none');
+        
+        if (formsWithMedia.length > 0) {
+            console.log('📤 Step 2: Media detected, processing in batches...');
+            
+            const BATCH_SIZE = 2; // Process 2 images at a time
+            const batches = [];
+            
+            // Split forms into batches
+            for (let i = 0; i < formsWithMedia.length; i += BATCH_SIZE) {
+                batches.push(formsWithMedia.slice(i, i + BATCH_SIZE));
+            }
+            
+            console.log(`📦 Split into ${batches.length} batch(es) of max ${BATCH_SIZE} items each`);
+            
+            let batchNumber = 0;
+            
+            // Process each batch sequentially
+            for (const batch of batches) {
+                batchNumber++;
+                console.log(`📤 Processing batch ${batchNumber}/${batches.length}...`);
+                
+                try {
+                    const imageResponse = await fetch(CONFIG.N8N_IMAGE_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            forms: batch,
+                            ...basePayload
+                        })
+                    });
+                    
+                    console.log(`📥 Batch ${batchNumber} response status:`, imageResponse.status);
+                    
+                    if (imageResponse.ok) {
+                        const responseText = await imageResponse.text();
                         
-                        // Update drafts with media
-                        if (imageResult) {
-                            let mediaResultsArray = Array.isArray(imageResult) ? imageResult : [imageResult];
+                        if (responseText && responseText.trim()) {
+                            const imageResult = JSON.parse(responseText);
+                            console.log(`📥 Batch ${batchNumber} results:`, imageResult);
                             
-                            console.log('📸 Processing', mediaResultsArray.length, 'media results');
-                            
-                            if (validForms.length > 0) {
-                                const targetForm = validForms[0];
+                            // Update drafts with media
+                            if (imageResult) {
+                                let mediaResultsArray = Array.isArray(imageResult) ? imageResult : [imageResult];
                                 
-                                mediaResultsArray.forEach((mediaData, index) => {
-                                    // Match by index since text and image webhooks return results in same order
-                                    const matchingDraft = targetForm.drafts[index];
+                                if (validForms.length > 0) {
+                                    const targetForm = validForms[0];
                                     
-                                    if (matchingDraft) {
-                                        console.log('✅ Assigning media to draft:', matchingDraft.id);
-                                        // Extract URL from object if needed
-                                        const imageUrl = mediaData.url || mediaData.image || '';
-                                        const videoUrl = mediaData.video || '';
+                                    // Match media to drafts by title
+                                    mediaResultsArray.forEach(mediaData => {
+                                        const matchingDraft = targetForm.drafts.find(d => 
+                                            d.title === (Array.isArray(mediaData.pageTitle) 
+                                                ? mediaData.pageTitle[0] 
+                                                : mediaData.pageTitle)
+                                        );
                                         
-                                        matchingDraft.image = imageUrl;
-                                        matchingDraft.video = videoUrl;
-                                        matchingDraft.loadingMedia = false;
-                                        
-                                        console.log('📸 Image URL:', imageUrl);
-                                    } else {
-                                        console.warn('⚠️ No matching draft for media index:', index);
-                                    }
-                                });
-                                
-                                renderDrafts(targetForm.id);
+                                        if (matchingDraft) {
+                                            console.log('✅ Assigning media to draft:', matchingDraft.id);
+                                            const imageUrl = mediaData.url || mediaData.image || '';
+                                            const videoUrl = mediaData.video || '';
+                                            
+                                            matchingDraft.image = imageUrl;
+                                            matchingDraft.video = videoUrl;
+                                            matchingDraft.loadingMedia = false;
+                                            
+                                            console.log('📸 Image URL:', imageUrl);
+                                        }
+                                    });
+                                    
+                                    renderDrafts(targetForm.id);
+                                }
                             }
                         }
                     } else {
-                        console.warn('⚠️ Image webhook returned empty response');
-                        // Remove loading state from all drafts
-                        if (validForms.length > 0) {
-                            validForms[0].drafts.forEach(d => d.loadingMedia = false);
-                            renderDrafts(validForms[0].id);
-                        }
+                        console.warn(`⚠️ Batch ${batchNumber} failed with status:`, imageResponse.status);
                     }
-                } catch (parseError) {
-                    console.error('❌ Error parsing image response:', parseError);
-                    // Remove loading state from all drafts
-                    if (validForms.length > 0) {
-                        validForms[0].drafts.forEach(d => d.loadingMedia = false);
-                        renderDrafts(validForms[0].id);
-                    }
+                } catch (error) {
+                    console.error(`❌ Error processing batch ${batchNumber}:`, error);
+                    // Continue with next batch even if this one fails
                 }
-            } else {
-                console.warn('⚠️ Image webhook did not return OK');
-                // Remove loading state from all drafts
-                if (validForms.length > 0) {
-                    validForms[0].drafts.forEach(d => d.loadingMedia = false);
-                    renderDrafts(validForms[0].id);
+                
+                // Small delay between batches to avoid overwhelming n8n
+                if (batchNumber < batches.length) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
+            }
+            
+            // Remove loading state from any remaining drafts
+            if (validForms.length > 0) {
+                validForms[0].drafts.forEach(d => d.loadingMedia = false);
+                renderDrafts(validForms[0].id);
             }
         }
         
@@ -1264,7 +1366,7 @@ async function submitAllForms() {
         showLoading(false);
     }
 }
-
+        
 // Show/Hide Loading
 function showLoading(show) {
     loadingOverlay.style.display = show ? 'flex' : 'none';
