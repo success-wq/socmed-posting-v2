@@ -15,6 +15,7 @@ let currentFormIndex = 0;
 let accounts = [];
 let spreadsheetData = [];
 let areas = []; // Store unique areas
+let availableImageUrls = []; // Store image URLs from n8n for manual loading
 
 // DOM Elements
 const formsContainer = document.getElementById('formsContainer');
@@ -760,6 +761,18 @@ function renderDrafts(formId) {
                             <div class="draft-media-loading">
                                 <div class="spinner-small"></div>
                                 <p>${draft.editData.mediaType === 'image' ? 'Image' : 'Video'} loading... please wait...</p>
+                                <button class="btn-secondary" disabled style="margin-top: 10px; opacity: 0.5; cursor: not-allowed;">
+                                    Load Image (Waiting for n8n...)
+                                </button>
+                            </div>
+                        ` : ''}
+                        
+                        ${!draft.loadingMedia && !draft.image && draft.editData?.mediaType === 'image' ? `
+                            <div class="draft-media-loading">
+                                <p>Image ready! Click button to load.</p>
+                                <button class="btn-secondary" onclick="loadImageForDraft(${formId}, ${draft.id})" style="margin-top: 10px;">
+                                    📥 Load Image
+                                </button>
                             </div>
                         ` : ''}
                         
@@ -848,6 +861,50 @@ function toggleDraftCollapse(formId, draftId) {
     console.log('✅ After toggle - collapsed:', draft.collapsed);
     
     renderDrafts(formId);
+}
+
+// Load Image For Draft - Manual Loading
+function loadImageForDraft(formId, draftId) {
+    console.log('📥 Loading image for draft:', { formId, draftId });
+    
+    const form = forms.find(f => f.id === formId);
+    if (!form) {
+        console.error('❌ Form not found:', formId);
+        return;
+    }
+    
+    const draft = form.drafts.find(d => d.id === draftId);
+    if (!draft) {
+        console.error('❌ Draft not found:', draftId);
+        return;
+    }
+    
+    console.log('📋 Available image URLs:', availableImageUrls);
+    console.log('🎯 Looking for draft with title:', draft.title);
+    
+    // Find matching image URL from available URLs
+    const matchingImage = availableImageUrls.find(img => {
+        const imgTitle = Array.isArray(img.pageTitle) ? img.pageTitle[0] : img.pageTitle;
+        console.log('   Comparing:', imgTitle, 'vs', draft.title);
+        return imgTitle === draft.title;
+    });
+    
+    if (matchingImage) {
+        const imageUrl = matchingImage.url || matchingImage.image || '';
+        console.log('✅ Found matching image:', imageUrl);
+        
+        draft.image = imageUrl;
+        draft.loadingMedia = false;
+        
+        // Remove this image from available list
+        availableImageUrls = availableImageUrls.filter(img => img !== matchingImage);
+        
+        renderDrafts(formId);
+        alert('Image loaded successfully!');
+    } else {
+        console.warn('⚠️ No matching image found for:', draft.title);
+        alert('No matching image found. Check console for details.');
+    }
 }
 
 // Delete Draft
@@ -1095,6 +1152,9 @@ async function submitAllForms() {
     
     showLoading(true);
     
+    // Clear any previous image URLs
+    availableImageUrls = [];
+    
     try {
         // Prepare clean forms with ALL data
         const cleanForms = validForms.map(form => {
@@ -1214,36 +1274,29 @@ async function submitAllForms() {
                             const imageResult = JSON.parse(responseText);
                             console.log(`📥 Batch ${batchNumber} results:`, imageResult);
                             
-                            // Update drafts with media
+                            // Store URLs for manual loading
                             if (imageResult) {
                                 let mediaResultsArray = Array.isArray(imageResult) ? imageResult : [imageResult];
                                 
+                                // Add all received URLs to availableImageUrls
+                                mediaResultsArray.forEach(mediaData => {
+                                    availableImageUrls.push(mediaData);
+                                    console.log('📥 Stored image URL for manual loading:', mediaData);
+                                });
+                                
+                                // Set all drafts to stop loading (enable Load Image button)
                                 if (validForms.length > 0) {
                                     const targetForm = validForms[0];
-                                    
-                                    // Match media to drafts by title
-                                    mediaResultsArray.forEach(mediaData => {
-                                        const matchingDraft = targetForm.drafts.find(d => 
-                                            d.title === (Array.isArray(mediaData.pageTitle) 
-                                                ? mediaData.pageTitle[0] 
-                                                : mediaData.pageTitle)
-                                        );
-                                        
-                                        if (matchingDraft) {
-                                            console.log('✅ Assigning media to draft:', matchingDraft.id);
-                                            const imageUrl = mediaData.url || mediaData.image || '';
-                                            const videoUrl = mediaData.video || '';
-                                            
-                                            matchingDraft.image = imageUrl;
-                                            matchingDraft.video = videoUrl;
-                                            matchingDraft.loadingMedia = false;
-                                            
-                                            console.log('📸 Image URL:', imageUrl);
+                                    targetForm.drafts.forEach(d => {
+                                        if (d.loadingMedia) {
+                                            d.loadingMedia = false;
                                         }
                                     });
-                                    
                                     renderDrafts(targetForm.id);
                                 }
+                                
+                                console.log('✅ All image URLs stored. Buttons now active!');
+                                console.log('📋 Total available URLs:', availableImageUrls.length);
                             }
                         }
                     } else {
@@ -1293,3 +1346,4 @@ window.cancelEdit = cancelEdit;
 window.deleteDraft = deleteDraft;
 window.publishDraft = publishDraft;
 window.publishAllDrafts = publishAllDrafts;
+window.loadImageForDraft = loadImageForDraft;
