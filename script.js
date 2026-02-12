@@ -1171,97 +1171,6 @@ async function submitAllForms() {
             }
         }
         
-// Submit All Forms - WITH BATCHING FOR IMAGES
-async function submitAllForms() {
-    // Validate all forms
-    const validForms = forms.filter(f => {
-        const hasValidPage = f.pageMode === 'all' || f.pages.length > 0;
-        return hasValidPage && f.platform && f.postPrompt && f.selectedArea;
-    });
-    
-    if (validForms.length === 0) {
-        alert('Please complete at least one form before submitting');
-        return;
-    }
-    
-    if (!confirm(`Submit ${validForms.length} form(s)?`)) return;
-    
-    showLoading(true);
-    
-    try {
-        // Prepare clean forms with ALL data
-        const cleanForms = validForms.map(form => {
-            const { drafts, ...formData } = form;
-            
-            // Add spreadsheet data arrays matching each page
-            const spreadsheetArrays = {
-                areas: [],
-                metaPageIds: [],
-                ghlLocationIds: [],
-                ghlApiKeys: []
-            };
-            
-            form.pageTitles.forEach((pageTitle, index) => {
-                const spreadsheetRow = spreadsheetData.find(row => 
-                    row.pageTitle === pageTitle
-                ) || {};
-                
-                spreadsheetArrays.areas.push(spreadsheetRow.area || '');
-                spreadsheetArrays.metaPageIds.push(spreadsheetRow.metaPageId || '');
-                spreadsheetArrays.ghlLocationIds.push(spreadsheetRow.ghlLocationId || '');
-                spreadsheetArrays.ghlApiKeys.push(spreadsheetRow.ghlApiKey || '');
-            });
-            
-            return {
-                ...formData,
-                ...spreadsheetArrays
-            };
-        });
-        
-        const basePayload = {
-            userId: CONFIG.GHL_USER_ID,
-            locationId: CONFIG.GHL_LOCATION_ID
-        };
-        
-        console.log('📤 Step 1: Sending to TEXT webhook...');
-        
-        // STEP 1: Send ALL forms to TEXT webhook (this is fast)
-        const textResponse = await fetch(CONFIG.N8N_TEXT_WEBHOOK, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                forms: cleanForms,
-                ...basePayload
-            })
-        });
-        
-        if (!textResponse.ok) {
-            throw new Error('Text generation failed');
-        }
-        
-        const textResult = await textResponse.json();
-        console.log('📥 Step 1 Complete: Received text:', textResult);
-        
-        // Process text results and add drafts
-        if (textResult) {
-            let resultsArray = Array.isArray(textResult) ? textResult : [textResult];
-            
-            if (validForms.length > 0) {
-                const targetForm = validForms[0];
-                
-                resultsArray.forEach(draftData => {
-                    const transformedResult = transformN8nResponse(draftData, targetForm);
-                    
-                    // Check if media is needed
-                    if (targetForm.mediaType !== 'none') {
-                        transformedResult.loadingMedia = true;
-                    }
-                    
-                    addDraft(targetForm.id, transformedResult);
-                });
-            }
-        }
-        
         // STEP 2: If media is enabled, send in BATCHES
         const formsWithMedia = cleanForms.filter(f => f.mediaType !== 'none');
         
@@ -1291,7 +1200,8 @@ async function submitAllForms() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             forms: batch,
-                            ...basePayload
+                            userId: CONFIG.GHL_USER_ID,
+                            locationId: CONFIG.GHL_LOCATION_ID
                         })
                     });
                     
@@ -1366,7 +1276,7 @@ async function submitAllForms() {
         showLoading(false);
     }
 }
-        
+
 // Show/Hide Loading
 function showLoading(show) {
     loadingOverlay.style.display = show ? 'flex' : 'none';
