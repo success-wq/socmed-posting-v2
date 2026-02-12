@@ -880,13 +880,13 @@ function loadImageForDraft(formId, draftId) {
     }
     
     console.log('📋 Available image URLs:', availableImageUrls);
-    console.log('🎯 Looking for draft with title:', draft.title);
+    console.log('🎯 Looking for draft with pageId:', draft.pageId);
     
-    // Find matching image URL from available URLs
+    // Find matching image URL from available URLs by pageID
     const matchingImage = availableImageUrls.find(img => {
-        const imgTitle = Array.isArray(img.pageTitle) ? img.pageTitle[0] : img.pageTitle;
-        console.log('   Comparing:', imgTitle, 'vs', draft.title);
-        return imgTitle === draft.title;
+        const imgPageId = Array.isArray(img.pageID) ? img.pageID[0] : img.pageID;
+        console.log('   Comparing pageIDs:', imgPageId, 'vs', draft.pageId);
+        return imgPageId === draft.pageId;
     });
     
     if (matchingImage) {
@@ -902,7 +902,7 @@ function loadImageForDraft(formId, draftId) {
         renderDrafts(formId);
         alert('Image loaded successfully!');
     } else {
-        console.warn('⚠️ No matching image found for:', draft.title);
+        console.warn('⚠️ No matching image found for pageId:', draft.pageId);
         alert('No matching image found. Check console for details.');
     }
 }
@@ -1156,9 +1156,16 @@ async function submitAllForms() {
     availableImageUrls = [];
     
     try {
+        // Generate unique timestamp for this submission
+        const timestamp = Date.now();
+        console.log('🕐 Generated timestamp for pageIDs:', timestamp);
+        
         // Prepare clean forms with ALL data
         const cleanForms = validForms.map(form => {
             const { drafts, ...formData } = form;
+            
+            // Add timestamp to all page IDs for unique identification
+            const uniquePages = formData.pages.map(pageId => `${pageId}_${timestamp}`);
             
             // Add spreadsheet data arrays matching each page
             const spreadsheetArrays = {
@@ -1181,6 +1188,7 @@ async function submitAllForms() {
             
             return {
                 ...formData,
+                pages: uniquePages, // Use timestamped page IDs
                 ...spreadsheetArrays
             };
         });
