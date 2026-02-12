@@ -1135,7 +1135,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Submit All Forms - SEQUENTIAL TEXT FIRST, THEN MEDIA
+// Submit All Forms - SEQUENTIAL TEXT FIRST, THEN INDIVIDUAL PAGE REQUESTS
 async function submitAllForms() {
     // Validate all forms
     const validForms = forms.filter(f => {
@@ -1239,93 +1239,100 @@ async function submitAllForms() {
             }
         }
         
-        // STEP 2: If media is enabled, send in BATCHES
+        // STEP 2: If media is enabled, send INDIVIDUAL REQUESTS per page
         const formsWithMedia = cleanForms.filter(f => f.mediaType !== 'none');
         
         if (formsWithMedia.length > 0) {
-            console.log('📤 Step 2: Media detected, processing in batches...');
+            console.log('📤 Step 2: Media detected, sending individual requests per page...');
             
-            const BATCH_SIZE = 2; // Process 2 images at a time
-            const batches = [];
+            // Collect all individual page requests
+            const individualRequests = [];
             
-            // Split forms into batches
-            for (let i = 0; i < formsWithMedia.length; i += BATCH_SIZE) {
-                batches.push(formsWithMedia.slice(i, i + BATCH_SIZE));
-            }
+            formsWithMedia.forEach(form => {
+                // Loop through each page in the form
+                form.pages.forEach((pageId, index) => {
+                    const pageTitle = form.pageTitles[index];
+                    const area = form.areas[index];
+                    const metaPageId = form.metaPageIds[index];
+                    const ghlLocationId = form.ghlLocationIds[index];
+                    const ghlApiKey = form.ghlApiKeys[index];
+                    
+                    // Create individual form with single page
+                    individualRequests.push({
+                        ...form,
+                        pages: [pageId],
+                        pageTitles: [pageTitle],
+                        areas: [area],
+                        metaPageIds: [metaPageId],
+                        ghlLocationIds: [ghlLocationId],
+                        ghlApiKeys: [ghlApiKey]
+                    });
+                });
+            });
             
-            console.log(`📦 Split into ${batches.length} batch(es) of max ${BATCH_SIZE} items each`);
+            console.log(`📦 Split into ${individualRequests.length} individual page request(s)`);
             
-            let batchNumber = 0;
+            let requestNumber = 0;
             
-            // Process each batch sequentially
-            for (const batch of batches) {
-                batchNumber++;
-                console.log(`📤 Processing batch ${batchNumber}/${batches.length}...`);
+            // Send each page as separate request
+            for (const singlePageForm of individualRequests) {
+                requestNumber++;
+                console.log(`📤 Processing page ${requestNumber}/${individualRequests.length}: ${singlePageForm.pageTitles[0]}`);
                 
                 try {
                     const imageResponse = await fetch(CONFIG.N8N_IMAGE_WEBHOOK, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            forms: batch,
+                            forms: [singlePageForm],
                             userId: CONFIG.GHL_USER_ID,
                             locationId: CONFIG.GHL_LOCATION_ID
                         })
                     });
                     
-                    console.log(`📥 Batch ${batchNumber} response status:`, imageResponse.status);
+                    console.log(`📥 Page ${requestNumber} response status:`, imageResponse.status);
                     
                     if (imageResponse.ok) {
                         const responseText = await imageResponse.text();
                         
                         if (responseText && responseText.trim()) {
                             const imageResult = JSON.parse(responseText);
-                            console.log(`📥 Batch ${batchNumber} results:`, imageResult);
+                            console.log(`📥 Page ${requestNumber} result:`, imageResult);
                             
-                            // Store URLs for manual loading
+                            // Store URL for manual loading
                             if (imageResult) {
-                                let mediaResultsArray = Array.isArray(imageResult) ? imageResult : [imageResult];
-                                
-                                // Add all received URLs to availableImageUrls
-                                mediaResultsArray.forEach(mediaData => {
-                                    availableImageUrls.push(mediaData);
-                                    console.log('📥 Stored image URL for manual loading:', mediaData);
-                                });
-                                
-                                // Set all drafts to stop loading (enable Load Image button)
-                                if (validForms.length > 0) {
-                                    const targetForm = validForms[0];
-                                    targetForm.drafts.forEach(d => {
-                                        if (d.loadingMedia) {
-                                            d.loadingMedia = false;
-                                        }
-                                    });
-                                    renderDrafts(targetForm.id);
-                                }
-                                
-                                console.log('✅ All image URLs stored. Buttons now active!');
-                                console.log('📋 Total available URLs:', availableImageUrls.length);
+                                const mediaData = Array.isArray(imageResult) ? imageResult[0] : imageResult;
+                                availableImageUrls.push(mediaData);
+                                console.log('📥 Stored image URL for manual loading:', mediaData);
                             }
                         }
                     } else {
-                        console.warn(`⚠️ Batch ${batchNumber} failed with status:`, imageResponse.status);
+                        console.warn(`⚠️ Page ${requestNumber} failed with status:`, imageResponse.status);
                     }
                 } catch (error) {
-                    console.error(`❌ Error processing batch ${batchNumber}:`, error);
-                    // Continue with next batch even if this one fails
+                    console.error(`❌ Error processing page ${requestNumber}:`, error);
+                    // Continue with next page even if this one fails
                 }
                 
-                // Small delay between batches to avoid overwhelming n8n
-                if (batchNumber < batches.length) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                // Small delay between requests
+                if (requestNumber < individualRequests.length) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
             }
             
-            // Remove loading state from any remaining drafts
+            // Set all drafts to stop loading (enable Load Image button)
             if (validForms.length > 0) {
-                validForms[0].drafts.forEach(d => d.loadingMedia = false);
-                renderDrafts(validForms[0].id);
+                const targetForm = validForms[0];
+                targetForm.drafts.forEach(d => {
+                    if (d.loadingMedia) {
+                        d.loadingMedia = false;
+                    }
+                });
+                renderDrafts(targetForm.id);
             }
+            
+            console.log('✅ All image requests complete. Buttons now active!');
+            console.log('📋 Total available URLs:', availableImageUrls.length);
         }
         
         alert('All forms submitted successfully!');
