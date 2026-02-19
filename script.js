@@ -168,7 +168,7 @@ function renderForm(form) {
                             <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="instagram">
                             <span class="radio-label">Instagram</span>
                         </label>
-/.                  </div>
+                    </div>
                 </div>
 
                 <!-- Page Mode Selection -->
