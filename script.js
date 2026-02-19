@@ -168,15 +168,7 @@ function renderForm(form) {
                             <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="instagram">
                             <span class="radio-label">Instagram</span>
                         </label>
-                        <label class="radio-item">
-                            <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="twitter">
-                            <span class="radio-label">Twitter</span>
-                        </label>
-                        <label class="radio-item">
-                            <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="tiktok">
-                            <span class="radio-label">TikTok</span>
-                        </label>
-                    </div>
+/.                  </div>
                 </div>
 
                 <!-- Page Mode Selection -->
