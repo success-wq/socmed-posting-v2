@@ -359,8 +359,8 @@ function setupFormListeners(form) {
         // Reload accounts filtered by area
         await loadAccounts(form.selectedArea);
         
-        // Update multiselect options
-        updateMultiselectOptions(form.id);
+        // Update multiselect options (pass current platform so filtering applies immediately)
+        updateMultiselectOptions(form.id, form.platform);
         updateMultiselectDisplay(form.id);
     });
     
@@ -376,6 +376,13 @@ function setupFormListeners(form) {
     formElement.querySelectorAll('[data-field="platform"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
             form.platform = e.target.value;
+            // Re-filter page options based on the newly selected platform
+            if (form.selectedArea) {
+                form.pages = [];
+                form.pageTitles = [];
+                updateMultiselectOptions(form.id, form.platform);
+                updateMultiselectDisplay(form.id);
+            }
         });
     });
     
@@ -441,10 +448,31 @@ function updateMediaSettings(formId, mediaType) {
 }
 
 // Update Multiselect Options
-function updateMultiselectOptions(formId) {
+function updateMultiselectOptions(formId, platform) {
+    const form = forms.find(f => f.id === formId);
     const optionsContainer = document.querySelector(`[data-multiselect-options="${formId}"]`);
-    
-    optionsContainer.innerHTML = accounts.map(acc => `
+    const currentPlatform = platform !== undefined ? platform : form.platform;
+
+    // Filter accounts based on selected platform and whether the platform-specific ID column is filled
+    const filteredAccounts = accounts.filter(acc => {
+        if (!currentPlatform) return true; // No platform selected yet — show all
+        const row = spreadsheetData.find(r => r.pageTitle === acc.name);
+        if (!row) return true;
+
+        if (currentPlatform === 'facebook') {
+            return row.metaPageId && row.metaPageId.toString().trim() !== '';
+        }
+        if (currentPlatform === 'instagram') {
+            return row.igMetaPageId && row.igMetaPageId.toString().trim() !== '';
+        }
+        if (currentPlatform === 'linkedin') {
+            return row.linkedinMetaPageId && row.linkedinMetaPageId.toString().trim() !== '';
+        }
+        // twitter, tiktok — no dedicated ID column check, show all
+        return true;
+    });
+
+    optionsContainer.innerHTML = filteredAccounts.map(acc => `
         <div class="multiselect-option" data-option-id="${acc.id}" data-option-name="${acc.name} (${acc.platform})">
             ${acc.name} (${acc.platform})
         </div>
@@ -458,8 +486,19 @@ function updateMultiselectVisibility(formId) {
     
     if (form.pageMode === 'all') {
         wrapper.style.display = 'none';
-        form.pages = accounts.map(acc => acc.id);
-        form.pageTitles = accounts.map(acc => acc.name);
+        // Apply same platform filtering as the dropdown when selecting all pages
+        const currentPlatform = form.platform;
+        const filteredAccounts = accounts.filter(acc => {
+            if (!currentPlatform) return true;
+            const row = spreadsheetData.find(r => r.pageTitle === acc.name);
+            if (!row) return true;
+            if (currentPlatform === 'facebook') return row.metaPageId && row.metaPageId.toString().trim() !== '';
+            if (currentPlatform === 'instagram') return row.igMetaPageId && row.igMetaPageId.toString().trim() !== '';
+            if (currentPlatform === 'linkedin') return row.linkedinMetaPageId && row.linkedinMetaPageId.toString().trim() !== '';
+            return true;
+        });
+        form.pages = filteredAccounts.map(acc => acc.id);
+        form.pageTitles = filteredAccounts.map(acc => acc.name);
     } else {
         wrapper.style.display = 'block';
     }
