@@ -108,7 +108,7 @@ function createForm() {
         pageMode: 'select',
         pages: [],
         pageTitles: [],
-        platform: '', // Changed from platforms array to single platform
+        platform: 'facebook', // Changed from platforms array to single platform
         postPrompt: '',
         mediaType: 'none', // 'none', 'video', or 'image'
         videoType: 'prompt',
@@ -147,6 +147,36 @@ function renderForm(form) {
                             <option value="${area}">${area}</option>
                         `).join('')}
                     </select>
+                </div>
+
+                <!-- Platform - Changed to Radio Buttons -->
+                <div class="form-section">
+                    <label class="section-label">
+                        Platform
+                        <span class="required-indicator">*</span>
+                    </label>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="facebook" checked>
+                            <span class="radio-label">Facebook</span>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="linkedin">
+                            <span class="radio-label">LinkedIn</span>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="instagram">
+                            <span class="radio-label">Instagram</span>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="twitter">
+                            <span class="radio-label">Twitter</span>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="tiktok">
+                            <span class="radio-label">TikTok</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Page Mode Selection -->
@@ -203,36 +233,6 @@ function renderForm(form) {
                                 <!-- Options will be populated based on area selection -->
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Platform - Changed to Radio Buttons -->
-                <div class="form-section">
-                    <label class="section-label">
-                        Platform
-                        <span class="required-indicator">*</span>
-                    </label>
-                    <div class="radio-group">
-                        <label class="radio-item">
-                            <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="facebook">
-                            <span class="radio-label">Facebook</span>
-                        </label>
-                        <label class="radio-item">
-                            <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="linkedin">
-                            <span class="radio-label">LinkedIn</span>
-                        </label>
-                        <label class="radio-item">
-                            <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="instagram">
-                            <span class="radio-label">Instagram</span>
-                        </label>
-                        <label class="radio-item">
-                            <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="twitter">
-                            <span class="radio-label">Twitter</span>
-                        </label>
-                        <label class="radio-item">
-                            <input type="radio" class="radio-input" name="platform-${form.id}" data-field="platform" value="tiktok">
-                            <span class="radio-label">TikTok</span>
-                        </label>
                     </div>
                 </div>
 
@@ -376,10 +376,41 @@ function setupFormListeners(form) {
     formElement.querySelectorAll('[data-field="platform"]').forEach(radio => {
         radio.addEventListener('change', (e) => {
             form.platform = e.target.value;
-            // Re-filter page options based on the newly selected platform
             if (form.selectedArea) {
-                form.pages = [];
-                form.pageTitles = [];
+                // Only remove currently selected pages that don't qualify for the new platform
+                // Keep the ones that do have the new platform's ID filled
+                const toKeepIndices = form.pageTitles.reduce((acc, title, i) => {
+                    const row = spreadsheetData.find(r => r.pageTitle === title);
+                    let qualifies = true;
+                    if (row) {
+                        if (form.platform === 'facebook') {
+                            qualifies = row.metaPageId && row.metaPageId.toString().trim() !== '';
+                        } else if (form.platform === 'instagram') {
+                            qualifies = row.igMetaPageId && row.igMetaPageId.toString().trim() !== '';
+                        } else if (form.platform === 'linkedin') {
+                            qualifies = row.linkedinMetaPageId && row.linkedinMetaPageId.toString().trim() !== '';
+                        }
+                        // twitter/tiktok: all qualify
+                    }
+                    if (qualifies) acc.push(i);
+                    return acc;
+                }, []);
+
+                // Update form selections to only the qualifying ones
+                form.pages = toKeepIndices.map(i => form.pages[i]);
+                form.pageTitles = toKeepIndices.map(i => form.pageTitles[i]);
+
+                // Deselect removed options in the dropdown UI
+                const optionsContainer = document.querySelector(`[data-multiselect-options="${form.id}"]`);
+                if (optionsContainer) {
+                    optionsContainer.querySelectorAll('.multiselect-option.selected').forEach(opt => {
+                        if (!form.pages.includes(opt.dataset.optionId)) {
+                            opt.classList.remove('selected');
+                        }
+                    });
+                }
+
+                // Re-render available options and tags
                 updateMultiselectOptions(form.id, form.platform);
                 updateMultiselectDisplay(form.id);
             }
@@ -472,11 +503,12 @@ function updateMultiselectOptions(formId, platform) {
         return true;
     });
 
-    optionsContainer.innerHTML = filteredAccounts.map(acc => `
-        <div class="multiselect-option" data-option-id="${acc.id}" data-option-name="${acc.name} (${acc.platform})">
-            ${acc.name} (${acc.platform})
-        </div>
-    `).join('');
+    optionsContainer.innerHTML = filteredAccounts.map(acc => {
+        const isSelected = form.pages.includes(acc.id);
+        return '<div class="multiselect-option' + (isSelected ? ' selected' : '') + '" data-option-id="' + acc.id + '" data-option-name="' + acc.name + ' (' + acc.platform + ')">' +
+            acc.name + ' (' + acc.platform + ')' +
+            '</div>';
+    }).join('');
 }
 
 // Update Multiselect Visibility
