@@ -998,6 +998,16 @@ async function publishDraft(formId, draftId) {
             row.pageTitle === draft.title
         ) || {};
         
+        // Select the correct meta page ID based on the platform
+        let resolvedMetaPageId = '';
+        if (draft.platform === 'instagram') {
+            resolvedMetaPageId = spreadsheetRow.igMetaPageId || '';
+        } else if (draft.platform === 'linkedin') {
+            resolvedMetaPageId = spreadsheetRow.linkedinMetaPageId || '';
+        } else {
+            resolvedMetaPageId = spreadsheetRow.metaPageId || '';
+        }
+
         const response = await fetch(CONFIG.N8N_PUBLISH_WEBHOOK, {
             method: 'POST',
             headers: {
@@ -1010,7 +1020,7 @@ async function publishDraft(formId, draftId) {
                 content: draft.text,
                 image: draft.image,
                 video: draft.video,
-                metaPageId: spreadsheetRow.metaPageId || '',
+                metaPageId: resolvedMetaPageId,
                 ghlLocationId: spreadsheetRow.ghlLocationId || '',
                 ghlApiKey: spreadsheetRow.ghlApiKey || ''
             })
@@ -1052,6 +1062,16 @@ async function publishAllDrafts(formId) {
                 row.pageTitle === draft.title
             ) || {};
             
+            // Select the correct meta page ID based on the platform
+            let resolvedMetaPageId = '';
+            if (draft.platform === 'instagram') {
+                resolvedMetaPageId = spreadsheetRow.igMetaPageId || '';
+            } else if (draft.platform === 'linkedin') {
+                resolvedMetaPageId = spreadsheetRow.linkedinMetaPageId || '';
+            } else {
+                resolvedMetaPageId = spreadsheetRow.metaPageId || '';
+            }
+
             const response = await fetch(CONFIG.N8N_PUBLISH_WEBHOOK, {
                 method: 'POST',
                 headers: {
@@ -1064,7 +1084,7 @@ async function publishAllDrafts(formId) {
                     content: draft.text,
                     image: draft.image,
                     video: draft.video,
-                    metaPageId: spreadsheetRow.metaPageId || '',
+                    metaPageId: resolvedMetaPageId,
                     ghlLocationId: spreadsheetRow.ghlLocationId || '',
                     ghlApiKey: spreadsheetRow.ghlApiKey || ''
                 })
