@@ -799,12 +799,7 @@ function renderDrafts(formId) {
                                     </svg>
                                 </button>
                             ` : `
-                                <button class="icon-btn" onclick="saveEdit(${formId}, ${draft.id})" title="Save">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                        <path d="M13.333 4L6 11.333 2.667 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                </button>
-                                <button class="icon-btn" onclick="cancelEdit(${formId}, ${draft.id})" title="Cancel">
+                                <button class="icon-btn" onclick="cancelEdit(${formId}, ${draft.id})" title="Close Edit">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                         <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                                     </svg>
@@ -815,7 +810,42 @@ function renderDrafts(formId) {
                     
                     <div class="draft-content">
                         ${draft.editing ? `
-                            <textarea class="draft-text-edit" data-draft-text="${draft.id}">${escapeHtml(draft.text)}</textarea>
+                            <div class="draft-edit-section">
+                                <p style="font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #6b7280;">Edit Text</p>
+                                <textarea class="draft-text-edit" data-draft-text="${draft.id}">${escapeHtml(draft.text)}</textarea>
+                                <button class="btn-secondary" onclick="saveTextEdit(${formId}, ${draft.id})" style="margin-top: 8px;">Save Text</button>
+                            </div>
+                            <div class="draft-edit-section" style="margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 16px;">
+                                <p style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #6b7280;">Edit Media</p>
+                                <div class="radio-group" style="margin-bottom: 8px;">
+                                    <label class="radio-item">
+                                        <input type="radio" class="radio-input" name="mediaEditType-${draft.id}" value="image" ${draft.mediaEditType === 'image' ? 'checked' : ''} onchange="updateDraftMediaEditType(${formId}, ${draft.id}, 'image')">
+                                        <span class="radio-label">Image</span>
+                                    </label>
+                                    <label class="radio-item">
+                                        <input type="radio" class="radio-input" name="mediaEditType-${draft.id}" value="video" ${draft.mediaEditType === 'video' ? 'checked' : ''} onchange="updateDraftMediaEditType(${formId}, ${draft.id}, 'video')">
+                                        <span class="radio-label">Video</span>
+                                    </label>
+                                </div>
+                                <div class="radio-group" style="margin-bottom: 10px;">
+                                    <label class="radio-item">
+                                        <input type="radio" class="radio-input" name="mediaEditInput-${draft.id}" value="prompt" ${draft.mediaEditInputType === 'prompt' ? 'checked' : ''} onchange="updateDraftMediaEditInput(${formId}, ${draft.id}, 'prompt')">
+                                        <span class="radio-label">Generate from Prompt</span>
+                                    </label>
+                                    <label class="radio-item">
+                                        <input type="radio" class="radio-input" name="mediaEditInput-${draft.id}" value="upload" ${draft.mediaEditInputType === 'upload' ? 'checked' : ''} onchange="updateDraftMediaEditInput(${formId}, ${draft.id}, 'upload')">
+                                        <span class="radio-label">Upload URL</span>
+                                    </label>
+                                </div>
+                                ${draft.mediaEditInputType === 'prompt' ? `
+                                    <textarea class="draft-text-edit" data-draft-media-prompt="${draft.id}" placeholder="Describe the ${draft.mediaEditType} you want to generate..." rows="3">${escapeHtml(draft.mediaEditPrompt || '')}</textarea>
+                                ` : `
+                                    <input type="url" class="text-input" data-draft-media-url="${draft.id}" placeholder="Enter ${draft.mediaEditType} URL..." value="${escapeHtml(draft.mediaEditUrl || '')}">
+                                `}
+                                <button class="btn-secondary" onclick="generateMediaEdit(${formId}, ${draft.id})" style="margin-top: 8px;">
+                                    Generate ${draft.mediaEditType === 'image' ? 'Image' : 'Video'}
+                                </button>
+                            </div>
                         ` : `
                             <p class="draft-text">${escapeHtml(draft.text).replace(/\n/g, '<br>')}</p>
                         `}
@@ -881,17 +911,25 @@ function editDraft(formId, draftId) {
     const form = forms.find(f => f.id === formId);
     const draft = form.drafts.find(d => d.id === draftId);
     draft.editing = true;
+    // Initialize media edit state if not already set
+    if (!draft.mediaEditType) draft.mediaEditType = 'image';
+    if (!draft.mediaEditInputType) draft.mediaEditInputType = 'prompt';
+    if (draft.mediaEditPrompt === undefined) draft.mediaEditPrompt = '';
+    if (draft.mediaEditUrl === undefined) draft.mediaEditUrl = '';
     renderDrafts(formId);
 }
 
-// Save Edit
-function saveEdit(formId, draftId) {
+// Save Text Edit (local only - no n8n call, keeps edit panel open)
+function saveTextEdit(formId, draftId) {
     const form = forms.find(f => f.id === formId);
     const draft = form.drafts.find(d => d.id === draftId);
     const textarea = document.querySelector(`[data-draft-text="${draftId}"]`);
-    
     draft.text = textarea.value;
-    draft.editing = false;
+    // Preserve media edit prompt/url from DOM before re-render
+    const mediaPromptEl = document.querySelector(`[data-draft-media-prompt="${draftId}"]`);
+    const mediaUrlEl = document.querySelector(`[data-draft-media-url="${draftId}"]`);
+    if (mediaPromptEl) draft.mediaEditPrompt = mediaPromptEl.value;
+    if (mediaUrlEl) draft.mediaEditUrl = mediaUrlEl.value;
     renderDrafts(formId);
 }
 
@@ -901,6 +939,118 @@ function cancelEdit(formId, draftId) {
     const draft = form.drafts.find(d => d.id === draftId);
     draft.editing = false;
     renderDrafts(formId);
+}
+
+// Update media edit type selection (image/video) - preserves prompt/url before re-render
+function updateDraftMediaEditType(formId, draftId, type) {
+    const form = forms.find(f => f.id === formId);
+    const draft = form.drafts.find(d => d.id === draftId);
+    const mediaPromptEl = document.querySelector(`[data-draft-media-prompt="${draftId}"]`);
+    const mediaUrlEl = document.querySelector(`[data-draft-media-url="${draftId}"]`);
+    if (mediaPromptEl) draft.mediaEditPrompt = mediaPromptEl.value;
+    if (mediaUrlEl) draft.mediaEditUrl = mediaUrlEl.value;
+    draft.mediaEditType = type;
+    renderDrafts(formId);
+}
+
+// Update media edit input type selection (prompt/upload) - preserves prompt/url before re-render
+function updateDraftMediaEditInput(formId, draftId, inputType) {
+    const form = forms.find(f => f.id === formId);
+    const draft = form.drafts.find(d => d.id === draftId);
+    const mediaPromptEl = document.querySelector(`[data-draft-media-prompt="${draftId}"]`);
+    const mediaUrlEl = document.querySelector(`[data-draft-media-url="${draftId}"]`);
+    if (mediaPromptEl) draft.mediaEditPrompt = mediaPromptEl.value;
+    if (mediaUrlEl) draft.mediaEditUrl = mediaUrlEl.value;
+    draft.mediaEditInputType = inputType;
+    renderDrafts(formId);
+}
+
+// Generate Media Edit - sends prompt to n8n image webhook and updates draft media
+async function generateMediaEdit(formId, draftId) {
+    const form = forms.find(f => f.id === formId);
+    const draft = form.drafts.find(d => d.id === draftId);
+
+    // Read current values from DOM before any re-render
+    const mediaPromptEl = document.querySelector(`[data-draft-media-prompt="${draftId}"]`);
+    const mediaUrlEl = document.querySelector(`[data-draft-media-url="${draftId}"]`);
+    if (mediaPromptEl) draft.mediaEditPrompt = mediaPromptEl.value;
+    if (mediaUrlEl) draft.mediaEditUrl = mediaUrlEl.value;
+
+    const mediaType = draft.mediaEditType;       // 'image' or 'video'
+    const inputType = draft.mediaEditInputType;  // 'prompt' or 'upload'
+
+    // Upload mode - just set the URL directly, no n8n call
+    if (inputType === 'upload') {
+        const url = (draft.mediaEditUrl || '').trim();
+        if (!url) { alert('Please enter a URL'); return; }
+        if (mediaType === 'image') {
+            draft.image = url;
+        } else {
+            draft.video = url;
+        }
+        renderDrafts(formId);
+        return;
+    }
+
+    // Prompt mode - send to n8n image webhook
+    const prompt = (draft.mediaEditPrompt || '').trim();
+    if (!prompt) { alert('Please enter a prompt'); return; }
+
+    const spreadsheetRow = spreadsheetData.find(row => row.pageTitle === draft.title) || {};
+
+    const singlePageForm = {
+        id: form.id,
+        pageMode: 'select',
+        pages: [draft.pageId],
+        pageTitles: [draft.title],
+        platform: draft.platform,
+        postPrompt: draft.text,
+        mediaType: mediaType,
+        imageType: mediaType === 'image' ? 'prompt' : 'prompt',
+        videoType: mediaType === 'video' ? 'prompt' : 'prompt',
+        imagePrompt: mediaType === 'image' ? prompt : '',
+        videoPrompt: mediaType === 'video' ? prompt : '',
+        areas: [spreadsheetRow.area || ''],
+        metaPageIds: [spreadsheetRow.metaPageId || ''],
+        ghlLocationIds: [spreadsheetRow.ghlLocationId || ''],
+        ghlApiKeys: [spreadsheetRow.ghlApiKey || '']
+    };
+
+    draft.loadingMedia = true;
+    renderDrafts(formId);
+
+    try {
+        const response = await fetch(CONFIG.N8N_IMAGE_WEBHOOK, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                forms: [singlePageForm],
+                userId: CONFIG.GHL_USER_ID,
+                locationId: CONFIG.GHL_LOCATION_ID
+            })
+        });
+
+        if (response.ok) {
+            const responseText = await response.text();
+            if (responseText && responseText.trim()) {
+                const result = JSON.parse(responseText);
+                const mediaData = Array.isArray(result) ? result[0] : result;
+                if (mediaType === 'image') {
+                    draft.image = mediaData.image || mediaData.url || '';
+                } else {
+                    draft.video = mediaData.video || '';
+                }
+            }
+        } else {
+            alert('Failed to generate media. Please try again.');
+        }
+    } catch (error) {
+        console.error('❌ Error generating media:', error);
+        alert('Error generating media. Please try again.');
+    } finally {
+        draft.loadingMedia = false;
+        renderDrafts(formId);
+    }
 }
 
 // Toggle Draft Collapse
@@ -1439,8 +1589,11 @@ document.addEventListener('DOMContentLoaded', init);
 // Make functions globally accessible for onclick handlers
 window.toggleDraftCollapse = toggleDraftCollapse;
 window.editDraft = editDraft;
-window.saveEdit = saveEdit;
+window.saveTextEdit = saveTextEdit;
 window.cancelEdit = cancelEdit;
+window.updateDraftMediaEditType = updateDraftMediaEditType;
+window.updateDraftMediaEditInput = updateDraftMediaEditInput;
+window.generateMediaEdit = generateMediaEdit;
 window.deleteDraft = deleteDraft;
 window.publishDraft = publishDraft;
 window.publishAllDrafts = publishAllDrafts;
