@@ -815,7 +815,7 @@ function renderDrafts(formId) {
                                 <textarea class="draft-text-edit" data-draft-text="${draft.id}">${escapeHtml(draft.text)}</textarea>
                                 <button class="btn-secondary" onclick="saveTextEdit(${formId}, ${draft.id})" style="margin-top: 8px;">Save Text</button>
                             </div>
-                            <div class="draft-edit-section" style="margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 16px;">
+                            <div class="draft-edit-section" style="margin-top: 16px; border-top: 1px solid #2a2a2a; padding-top: 16px;">
                                 <p style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #6b7280;">Edit Media</p>
                                 <div class="radio-group" style="margin-bottom: 8px;">
                                     <label class="radio-item">
