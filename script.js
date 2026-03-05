@@ -35,19 +35,39 @@ async function loadSpreadsheetData() {
         console.log('📥 Raw response:', data);
         
         if (data && data.length > 0) {
-            spreadsheetData = data;
+            // ─── Skip rows that have no area or no pageTitle (blank/notes rows) ───
+            const validRows = data.filter(row =>
+                row.area && row.area.toString().trim() !== '' &&
+                row.pageTitle && row.pageTitle.toString().trim() !== ''
+            );
+            // ─────────────────────────────────────────────────────────────────────
+
+            // ─── Normalise every row so 'platform' is always the key ─────────────
+            spreadsheetData = validRows.map(row => {
+                const normalised = { ...row };
+                // If the sheet ever sends 'platforms' (plural), collapse it to 'platform'
+                if (normalised.platforms !== undefined && normalised.platform === undefined) {
+                    const val = normalised.platforms;
+                    normalised.platform = Array.isArray(val) ? val[0] : val;
+                }
+                delete normalised.platforms; // remove plural key entirely
+                return normalised;
+            });
+            // ─────────────────────────────────────────────────────────────────────
+
+            console.log(`✅ Valid rows after filtering: ${spreadsheetData.length} (skipped ${data.length - spreadsheetData.length} blank/notes rows)`);
             
             // Extract unique areas
-            areas = [...new Set(data.map(row => row.area).filter(Boolean))];
+            areas = [...new Set(spreadsheetData.map(row => row.area).filter(Boolean))];
             console.log('📍 Areas found:', areas);
             
-            // Set CONFIG values from first row
-            const firstRow = data[0];
+            // Set CONFIG values from first valid row
+            const firstRow = spreadsheetData[0];
             CONFIG.GHL_LOCATION_ID = firstRow.ghlLocationId || '';
             CONFIG.GHL_TOKEN = firstRow.ghlApiKey || '';
             CONFIG.GHL_USER_ID = firstRow.ghlLocationId || '';
             
-            console.log('✅ Spreadsheet data loaded:', data.length, 'rows');
+            console.log('✅ Spreadsheet data loaded:', spreadsheetData.length, 'rows');
         } else {
             console.error('❌ No data returned from spreadsheet');
         }
@@ -504,21 +524,28 @@ function updateMultiselectOptions(formId, platform) {
 }
 
 // Update Multiselect Visibility
+// ─── FIX 1: "All Pages" now correctly filters by platform ID columns ───────
 function updateMultiselectVisibility(formId) {
     const form = forms.find(f => f.id === formId);
     const wrapper = document.querySelector(`[data-multiselect="${formId}"]`);
     
     if (form.pageMode === 'all') {
         wrapper.style.display = 'none';
-        // Apply same platform filtering as the dropdown when selecting all pages
         const currentPlatform = form.platform;
+        // Reuse the exact same filtering logic as updateMultiselectOptions
         const filteredAccounts = accounts.filter(acc => {
             if (!currentPlatform) return true;
             const row = spreadsheetData.find(r => r.pageTitle === acc.name);
             if (!row) return true;
-            if (currentPlatform === 'facebook') return row.metaPageId && row.metaPageId.toString().trim() !== '';
-            if (currentPlatform === 'instagram') return row.igMetaPageId && row.igMetaPageId.toString().trim() !== '';
-            if (currentPlatform === 'linkedin') return row.linkedinMetaPageId && row.linkedinMetaPageId.toString().trim() !== '';
+            if (currentPlatform === 'facebook') {
+                return row.metaPageId && row.metaPageId.toString().trim() !== '';
+            }
+            if (currentPlatform === 'instagram') {
+                return row.igMetaPageId && row.igMetaPageId.toString().trim() !== '';
+            }
+            if (currentPlatform === 'linkedin') {
+                return row.linkedinMetaPageId && row.linkedinMetaPageId.toString().trim() !== '';
+            }
             return true;
         });
         form.pages = filteredAccounts.map(acc => acc.id);
@@ -527,6 +554,7 @@ function updateMultiselectVisibility(formId) {
         wrapper.style.display = 'block';
     }
 }
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Update Conditional Fields
 function updateConditionalFields(formElement, condition, value) {
@@ -1419,9 +1447,15 @@ async function submitAllForms() {
                 spreadsheetArrays.ghlApiKeys.push(spreadsheetRow.ghlApiKey || '');
             });
             
+            // ─── FIX 2 (payload): strip any 'platforms' key that leaked into
+            //     formData from the spread, ensure only 'platform' is sent ───
+            const { platforms: _drop, ...cleanFormData } = formData;
+            // ─────────────────────────────────────────────────────────────────
+
             return {
-                ...formData,
-                pages: uniquePages, // Use timestamped page IDs
+                ...cleanFormData,
+                platform: form.platform, // always singular, always from form state
+                pages: uniquePages,       // Use timestamped page IDs
                 ...spreadsheetArrays
             };
         });
