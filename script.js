@@ -1,9 +1,9 @@
 // Configuration
 const CONFIG = {
     WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbwsPqtiXoC6vNF6BNYQPGqhbazL_tvn5KD07GIOuyZtzhmqPAeL1JTk7IztpPyh5b6h/exec',
-    N8N_TEXT_WEBHOOK: 'http://alpha.bsmlogin.com/webhook/socmedposting-text',
-    N8N_IMAGE_WEBHOOK: 'http://alpha.bsmlogin.com/webhook/socmedposting-media',
-    N8N_PUBLISH_WEBHOOK: 'http://alpha.bsmlogin.com/webhook/platform-publish',
+    N8N_TEXT_WEBHOOK: 'https://alpha.bsmlogin.com/webhook/socmedposting-text',
+    N8N_IMAGE_WEBHOOK: 'https://alpha.bsmlogin.com/webhook/socmedposting-media',
+    N8N_PUBLISH_WEBHOOK: 'https://alpha.bsmlogin.com/webhook/platform-publish',
     GHL_LOCATION_ID: '',
     GHL_TOKEN: '',
     GHL_USER_ID: ''
